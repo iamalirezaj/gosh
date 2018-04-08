@@ -1,0 +1,11 @@
+package main
+
+import "github.com/gin-gonic/gin"
+
+type {CONTROLLER}Controller struct {}
+
+func ({CONTROLLER}Controller) Index(response *gin.Context) {
+
+	// index function of {CONTROLLER}Controller
+	// you can use response variable to return response
+}
