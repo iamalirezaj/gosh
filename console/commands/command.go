@@ -7,6 +7,5 @@ type Command struct {
 }
 
 type CommandInterface interface {
-	Configure() cli.Command
-	Handle(c *cli.Context)
+	Configure(command cli.Command) cli.Command
 }

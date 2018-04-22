@@ -1,26 +1,48 @@
 package gosh
 
 import (
-	"os"
 	"github.com/gin-gonic/gin"
+	"gosh/routing"
 )
 
-type BaseRouterProvider struct {
-	ProviderInterface
+type RouterProvider Provider
+
+func (provider RouterProvider) Register(app Application) Application {
+
+	var router = gin.Default()
+
+	for _, route := range app.Routes {
+		if route.GetMethod() == "GROUP" {
+			router = provider.AddGroupRoute(router, route.GetPath(), route.GetRoutes())
+		} else {
+			provider.AddRoute(router, route)
+		}
+	}
+
+	return app.SetRouter(router)
 }
 
-func (BaseRouterProvider) Boot(app Application) Application {
-	gin.SetMode(os.Getenv("GIN_MODE"))
-	app.Make("router")
-	return app
+func (provider RouterProvider) AddGroupRoute(router *gin.Engine, path string, routes []routing.RouteInterface) *gin.Engine {
+
+	for _, route := range routes {
+		provider.AddRoute(router.Group(path), route)
+	}
+
+	return router
 }
 
-func (provider BaseRouterProvider) Register(app Application) Application {
+func (RouterProvider) AddRoute(router gin.IRouter, route routing.RouteInterface) gin.IRoutes {
 
-	app = app.Register("router", func() interface{} {
+	action := func(context *gin.Context) {
+		context.Render(routing.GetResponse(route))
+	}
 
-		return gin.Default()
-	})
+	return router.Handle(route.GetMethod(),route.GetPath(),action)
+}
 
-	return app
+func (p RouterProvider) Boot(application Application) Application {
+
+	application.GetRouter().Run("127.0.0.1:8000")
+
+	return application
 }

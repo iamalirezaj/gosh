@@ -2,141 +2,125 @@ package gosh
 
 import (
 	"reflect"
-	"fmt"
+	"gosh/routing"
+	"gosh/request"
+	"github.com/fatih/color"
+	"github.com/gin-gonic/gin"
+	"upper.io/db.v3/lib/sqlbuilder"
 )
 
 type Application struct {
 	Name string
 	Version float64
-	Providers []map[string] ProviderInterface
-	Aliases []map[string] interface{}
-	RegisteredProviders []string
+	Mode string
+	Providers []ProviderInterface
+	Routes []routing.RouteInterface
+	Request request.Request
+	Router *gin.Engine
+	Connection sqlbuilder.Database
 }
 
-func (application Application) Make(alias string) interface{} {
+func (application Application) Make(action interface{}) Application {
 
-	return application.FindAlias(alias)
-}
-
-func (application Application) FindAlias(alias string) interface{} {
-
-	for index, _ := range application.Aliases {
-		for name, abstract := range application.Aliases[index] {
-			if name == alias {
-				return abstract
-			}
-		}
-	}
-
-	return nil
-}
-
-func (application Application) Boot(function func()) Application {
-	function()
 	return application
 }
 
-func (application Application) Alias(alias string, abstract interface{}) Application {
+func (application Application) SetRouter(router *gin.Engine) Application {
 
-	application.Aliases = append(application.Aliases, map[string] interface {} {
-		string(alias): abstract,
-	})
+	application.Router = router
 	return application
 }
 
-func (application Application) Register(alias string, abstract interface{}) Application {
+func (application Application) SetDatabaseConnection(connection sqlbuilder.Database) Application {
 
-	return application.Alias(alias, abstract)
+	application.Connection = connection
+	return application
+}
+
+func (application Application) GetRouter() *gin.Engine {
+	return application.Router
+}
+
+func (application Application) SetRoutes(routes []routing.RouteInterface) Application {
+
+	application.Routes = append(application.Routes, routes...)
+	return application
 }
 
 func (application Application) AddProviders(providers []ProviderInterface) Application {
 
-	for _, provider := range providers {
-		application = application.AddProvider(provider)
-	}
-
-	return application
-}
-
-func (application Application) AddProvider(provider ProviderInterface) Application {
-
-	// add provider to providers
-	application.Providers = append(application.Providers, map[string] ProviderInterface {
-		reflect.TypeOf(provider).Name(): provider,
-	})
-
+	application.Providers = append(application.Providers, providers...)
 	return application
 }
 
 func (application Application) GetProviders() []ProviderInterface {
 
-	BaseProviders := []ProviderInterface {
+	BaseProviders := []ProviderInterface {}
+
+	BeforProvider := []ProviderInterface {
 		EnvironmentProvider{},
 		MysqlProvider{},
 	}
 
-	for _, providerArray := range application.Providers {
-		for _, provider := range providerArray {
-			BaseProviders = append(BaseProviders, provider)
-		}
+	AfterProviders := []ProviderInterface {
+		RouterProvider{},
 	}
+
+	BaseProviders = append(BeforProvider, application.Providers... )
+	BaseProviders = append(BaseProviders, AfterProviders...)
 
 	return BaseProviders
 }
 
 func (application Application) BootProvider(provider ProviderInterface) Application {
 
-	provider.Boot()
+	provider.Boot(application)
+
+	if application.Mode == "debug" {
+		color.Green(reflect.TypeOf(provider).String() + " booted.")
+	}
+
 	return application
 }
 
 func (application Application) RegisterProvider(provider ProviderInterface) Application {
 
 	application = provider.Register(application)
-	return application
-}
 
-func (application Application) AddToRegisteredProviders(provider ProviderInterface) Application {
-
-	application.RegisteredProviders = append(application.RegisteredProviders, reflect.TypeOf(provider).Name())
-	return application
-}
-
-func (application Application) IsProviderExists(provider ProviderInterface) bool {
-	for _, registred := range application.RegisteredProviders {
-		if registred == reflect.TypeOf(provider).Name() {
-			return true
-		}
+	if application.Mode == "debug" {
+		color.Green(reflect.TypeOf(provider).String() + " registered.")
 	}
 
-	return false
-}
-
-func (application Application) BootThenRegisterProvider(provider ProviderInterface) Application {
-	application = application.RegisterProvider(provider).BootProvider(provider)
-	fmt.Println(reflect.TypeOf(provider).Name() + " Boot then registered.")
 	return application
 }
 
-func (application Application) RunProviderAndRegisterIt(provider ProviderInterface) Application {
-	application = application.BootThenRegisterProvider(provider).AddToRegisteredProviders(provider)
+func (application Application) RunProviders() Application {
+
+	providers := application.GetProviders()
+
+	application = application.RegisterProviders(providers).BootProviders(providers)
+
 	return application
 }
 
-func (application Application) RunProvider(provider ProviderInterface) Application {
+func (application Application) BootProviders(providers []ProviderInterface) Application {
 
-	if !application.IsProviderExists(provider) {
-		application = application.RunProviderAndRegisterIt(provider)
+	for _, provider := range providers {
+		application = application.BootProvider(provider)
 	}
+	return application
+}
 
+func (application Application) RegisterProviders(providers []ProviderInterface) Application {
+
+	for _, provider := range providers {
+		application = application.RegisterProvider(provider)
+	}
 	return application
 }
 
 func (application Application) Run() Application {
 
-	for _, provider := range application.GetProviders() {
-		application = application.RunProvider(provider)
-	}
-
+	application = application.RunProviders()
 	return application
 }

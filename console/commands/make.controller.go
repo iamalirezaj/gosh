@@ -2,66 +2,69 @@ package commands
 
 import (
 	"github.com/codegangsta/cli"
-	"gosh/console/commands/flags"
 	"github.com/fatih/color"
 	"os"
 	"reflect"
 	"io/ioutil"
 	"strings"
+	"fmt"
 )
 
-type HelpCommand Command
+type MakeControllerCommand Command
 
-func (command HelpCommand) Configure() cli.Command {
+func (c MakeControllerCommand) Configure(command cli.Command) cli.Command {
 
-	return cli.Command {
-		Name:        "make:controller",
-		UsageText:   "gosh make:controller {controller_name} ",
-		Description: `Generate a new controller`,
-		Flags: []cli.Flag {
-			flags.RequiredFlag{
-				cli.StringFlag{
-					Name: "name",
-				},
-			},
+	command.Name        =   "make:controller"
+	command.UsageText   =   "gosh make:controller {controller_name} "
+	command.Description =   `Generate a new controller`
+	command.Flags       =   []cli.Flag {
+		cli.StringFlag {
+			Name: "name",
 		},
 	}
-}
+	command.Action      =   func(context *cli.Context) error {
 
-func (command HelpCommand) Handle(context *cli.Context) {
+		if context.Args().First() == "" {
 
-	currentPath := os.Getenv("PWD")
-
-	controller := context.Args().First()
-
-	file := currentPath + "/" + controller + ".controller.go"
-
-	// detect if file exists
-	var _, controllerFile = os.Stat(file)
-
-	// create file if not exists
-	if os.IsNotExist(controllerFile) {
-
-		command.WriteFile(controller, file)
-	} else {
-
-		color.Red(controller + " Controller is exist")
-	}
-}
-
-func (command HelpCommand) WriteFile(controller string,filepath string)  {
-
-	stubfile := os.Getenv("GOPATH") + "/src/" + reflect.TypeOf(command).PkgPath() + "/stubs/controller.stub"
-
-	content, err := ioutil.ReadFile(stubfile)
-	if err == nil {
-
-		newContents := strings.Replace(string(content), "{CONTROLLER}", controller, -1)
-
-		err := ioutil.WriteFile(filepath, []byte(newContents), 0644)
-		if err == nil {
-			color.Green("Controller created successfully.")
+			return cli.NewExitError(
+				fmt.Sprintf(
+					"Missing %v argument for '%v'",
+					"name", context.Command.Name,
+				), 3,
+			)
 		}
+
+		currentPath := os.Getenv("PWD")
+
+		controller := context.Args().First()
+
+		file := currentPath + "/" + controller + ".controller.go"
+
+		// detect if file exists
+		var _, controllerFile = os.Stat(file)
+
+		// create file if not exists
+		if os.IsNotExist(controllerFile) {
+
+			stubfile := os.Getenv("GOPATH") + "/src/" + reflect.TypeOf(c).PkgPath() + "/stubs/controller.stub"
+			stubContent, err := ioutil.ReadFile(stubfile)
+
+			if err == nil {
+				contents := strings.Replace(string(stubContent), "{CONTROLLER}", controller, -1)
+				err := ioutil.WriteFile(file, []byte(contents), 0644)
+
+				if err == nil {
+					color.Green("Controller created successfully.")
+				}
+			}
+		} else {
+
+			color.Red(controller + " Controller is exist")
+		}
+
+		return nil
 	}
+
+	return command
 }
 

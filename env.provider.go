@@ -13,16 +13,20 @@ func env(value string) string {
 
 type EnvironmentProvider Provider
 
-func (EnvironmentProvider) Boot() {
-	err := godotenv.Load()
+func (EnvironmentProvider) Register(application Application) Application {
 
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		fmt.Println(err)
 	}
-}
 
-func (EnvironmentProvider) Register(app Application) Application {
+	application.Mode = env("ENV")
+	if application.Mode == "" { application.Mode = "debug" }
 
 	// your register things in application scope
-	return app
+	return application
+}
+
+func (EnvironmentProvider) Boot(application Application) Application {
+
+	return application
 }
