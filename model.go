@@ -7,19 +7,17 @@ import (
 	"upper.io/db.v3/mysql"
 	"upper.io/db.v3/lib/sqlbuilder"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/kr/pretty"
 )
 
 type Model struct {
 	Model ModelInterface
 	Table string
 	Hidden []string
-	ModelInterface
 	*Collection
 }
 
-type ModelInterface interface {
-	New() *Model
-}
+type ModelInterface interface {}
 
 func connection() (db sqlbuilder.Database) {
 
@@ -32,17 +30,37 @@ func connection() (db sqlbuilder.Database) {
 	return
 }
 
-func (m Model) All() *Collection {
-	selector := connection().Select("*").From("users")
-	collections := m.Collection.SetSelector(selector)
-	return collections.Run()
+func (m Model) relationships(data ModelInterface) []int {
+
+	relationships := []int {}
+
+	d := reflect.ValueOf(data)
+	for i := 0; i < d.NumField(); i++ {
+		typ := d.Field(i).Type()
+		mod := reflect.TypeOf(new(Model))
+		if typ.Kind() == reflect.Struct {
+			for n := 0; n < typ.NumField(); n++ {
+				if typ.Field(n).Type == mod {
+					relationships = append(relationships, i)
+				}
+			}
+		}
+	}
+
+	return relationships
+}
+
+func (m Model) All() interface{} {
+	selector := connection().SelectFrom(m.Table)
+	datas := reflect.New(reflect.SliceOf(reflect.TypeOf(m.Model))).Interface()
+	selector.All(datas)
+	return datas
 }
 
 func NewModel(model ModelInterface) *Model {
 	return &Model{
 		Model: model,
 		Table: GetTableName(model),
-		Hidden: GetHidden(model),
 		Collection: &Collection{},
 	}
 }

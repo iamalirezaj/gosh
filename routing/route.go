@@ -3,8 +3,7 @@ package routing
 import (
 	"gosh/response"
 	"github.com/gin-gonic/gin/render"
-	"reflect"
-	"fmt"
+	//"reflect"
 )
 
 type Route struct {
@@ -32,31 +31,26 @@ func (route Route) GetAction() interface{} {
 
 	action := route.Action
 
-	typ := reflect.TypeOf(route.Action).Kind()
-
-	fmt.Println(typ)
-
-	switch typ {
-	case reflect.String:
-
-		method := reflect.ValueOf(route.Action).String()
-		action = reflect.ValueOf(route.Controller).
-			MethodByName(method).Call([]reflect.Value{})[0].Interface()
-
-	case reflect.Func:
-
-		method := reflect.ValueOf(route.Action)
-		in := make([]reflect.Value, method.Type().NumIn())
-
-		for i := 0; i < method.Type().NumIn(); i++ {
-			obj, _ := method.Type().In(i).MethodByName("New")
-			in[i] = reflect.ValueOf(obj.Func)
-		}
-
-		fmt.Println(method.Call(in))
-
-		action = method
-	}
+	//typ := reflect.TypeOf(route.Action).Kind()
+	//
+	//switch typ {
+	//case reflect.String:
+	//
+	//	method := reflect.ValueOf(route.Action).String()
+	//	action = reflect.ValueOf(route.Controller).
+	//		MethodByName(method).Call([]reflect.Value{})[0].Interface()
+	//
+	//case reflect.Func:
+	//
+	//	method := reflect.ValueOf(route.Action)
+	//	in := make([]reflect.Value, method.Type().NumIn())
+	//
+	//	for i := 0; i < method.Type().NumIn(); i++ {
+	//		obj, _ := method.Type().In(i).MethodByName("New")
+	//		in[i] = reflect.ValueOf(obj.Func)
+	//	}
+	//	action = method
+	//}
 
 	return action
 }
