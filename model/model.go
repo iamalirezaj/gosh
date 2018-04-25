@@ -49,10 +49,10 @@ func (m Model) Load(relationships ...string) Model {
 		relation := method.Call([]reflect.Value {})[0].Interface()
 
 		switch reflect.TypeOf(relation) {
-		case reflect.TypeOf(Hasone{}):
+		case reflect.TypeOf(HasOneRelation{}):
 			relationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
 			TableName := reflect.ValueOf(relationModel).FieldByName("Table").String()
-			m.Selector = m.Selector.CrossJoin(TableName + " AS t2 ").On("t1.role_id = t2.id")
+			m.Selector = HasOneRelation{}.Prepare(m.Selector, TableName, "role_id", "id")
 		}
 	}
 
@@ -72,12 +72,12 @@ func (m Model) All() interface{} {
 	return datas
 }
 
-func HasMany(model ModelInterface) Hasmany {
-	return Hasmany{ Model: NewModel(model) }
+func HasMany(model ModelInterface) HasManyRelation {
+	return HasManyRelation{ Model: NewModel(model) }
 }
 
-func HasOne(model ModelInterface) Hasone {
-	return Hasone{ Model: NewModel(model) }
+func HasOne(model ModelInterface) HasOneRelation {
+	return HasOneRelation{ Model: NewModel(model) }
 }
 
 func NewModel(model ModelInterface) Model {
