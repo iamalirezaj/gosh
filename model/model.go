@@ -1,4 +1,4 @@
-package gosh
+package model
 
 import (
 	"os"
@@ -7,13 +7,13 @@ import (
 	"upper.io/db.v3/mysql"
 	"upper.io/db.v3/lib/sqlbuilder"
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/kr/pretty"
 )
 
 type Model struct {
 	Model ModelInterface
 	Table string
 	Hidden []string
+	Selector sqlbuilder.Selector
 	*Collection
 }
 
@@ -30,24 +30,39 @@ func connection() (db sqlbuilder.Database) {
 	return
 }
 
-func (m Model) relationships(data ModelInterface) []int {
+func (m Model) Get() interface{} {
+	datas := reflect.New(reflect.TypeOf(m.Model)).Interface()
+	m.Selector.One(datas)
+	return datas
+}
 
-	relationships := []int {}
+func (m Model) First() interface{} {
+	return m.Get()
+}
 
-	d := reflect.ValueOf(data)
-	for i := 0; i < d.NumField(); i++ {
-		typ := d.Field(i).Type()
-		mod := reflect.TypeOf(new(Model))
-		if typ.Kind() == reflect.Struct {
-			for n := 0; n < typ.NumField(); n++ {
-				if typ.Field(n).Type == mod {
-					relationships = append(relationships, i)
-				}
-			}
+func (m Model) Load(relationships ...string) Model {
+
+	datas := reflect.ValueOf(m.Model)
+
+	for _, relationName := range relationships {
+		method := datas.MethodByName(relationName)
+		relation := method.Call([]reflect.Value {})[0].Interface()
+
+		switch reflect.TypeOf(relation) {
+		case reflect.TypeOf(Hasone{}):
+			relationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
+			TableName := reflect.ValueOf(relationModel).FieldByName("Table").String()
+			m.Selector = m.Selector.CrossJoin(TableName + " AS t2 ").On("t1.role_id = t2.id")
 		}
 	}
 
-	return relationships
+	return m
+}
+
+func (m Model) Find(id int) Model {
+	selector := connection().SelectFrom(m.Table + " AS t1 ").Where("t1.id = ?", id)
+	m.Selector = selector
+	return m
 }
 
 func (m Model) All() interface{} {
@@ -57,8 +72,16 @@ func (m Model) All() interface{} {
 	return datas
 }
 
-func NewModel(model ModelInterface) *Model {
-	return &Model{
+func HasMany(model ModelInterface) Hasmany {
+	return Hasmany{ Model: NewModel(model) }
+}
+
+func HasOne(model ModelInterface) Hasone {
+	return Hasone{ Model: NewModel(model) }
+}
+
+func NewModel(model ModelInterface) Model {
+	return Model{
 		Model: model,
 		Table: GetTableName(model),
 		Collection: &Collection{},

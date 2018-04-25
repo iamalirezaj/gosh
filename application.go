@@ -2,8 +2,10 @@ package gosh
 
 import (
 	"reflect"
+	"io/ioutil"
 	"gosh/routing"
 	"gosh/request"
+	"gopkg.in/yaml.v2"
 	"github.com/fatih/color"
 	"github.com/gin-gonic/gin"
 	"upper.io/db.v3/lib/sqlbuilder"
@@ -11,13 +13,19 @@ import (
 
 type Application struct {
 	Name string
-	Version float64
-	Mode string
+	Version string
+	Environment string
 	Providers []ProviderInterface
 	Routes []routing.RouteInterface
 	Request request.Request
 	Router *gin.Engine
 	Connection sqlbuilder.Database
+}
+
+func(application Application) LoadConfigs(filename string) Application {
+	yamlFile, _ := ioutil.ReadFile(filename)
+	yaml.Unmarshal(yamlFile, &application)
+	return application
 }
 
 func (application Application) Make(action interface{}) Application {
@@ -76,7 +84,7 @@ func (application Application) BootProvider(provider ProviderInterface) Applicat
 
 	provider.Boot(application)
 
-	if application.Mode == "debug" {
+	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " booted.")
 	}
 
@@ -87,7 +95,7 @@ func (application Application) RegisterProvider(provider ProviderInterface) Appl
 
 	application = provider.Register(application)
 
-	if application.Mode == "debug" {
+	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " registered.")
 	}
 

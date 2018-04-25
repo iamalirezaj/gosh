@@ -19,8 +19,8 @@ func (EnvironmentProvider) Register(application Application) Application {
 		fmt.Println(err)
 	}
 
-	application.Mode = env("ENV")
-	if application.Mode == "" { application.Mode = "debug" }
+	application.Environment = env("ENV")
+	if application.Environment == "" { application.Environment = "debug" }
 
 	// your register things in application scope
 	return application

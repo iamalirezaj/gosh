@@ -1,8 +1,8 @@
-package gosh
+package model
 
 import (
-	"database/sql"
 	"reflect"
+	"database/sql"
 	"github.com/iancoleman/strcase"
 	"upper.io/db.v3/lib/sqlbuilder"
 )
