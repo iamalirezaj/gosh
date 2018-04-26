@@ -7,13 +7,15 @@ import (
 	"upper.io/db.v3/mysql"
 	"upper.io/db.v3/lib/sqlbuilder"
 	_ "github.com/go-sql-driver/mysql"
+	//"github.com/kr/pretty"
 )
 
 type Model struct {
-	Model ModelInterface
+	Model reflect.Value
 	Table string
 	Hidden []string
 	Selector sqlbuilder.Selector
+	Attributes interface{}
 	*Collection
 }
 
@@ -31,9 +33,7 @@ func connection() (db sqlbuilder.Database) {
 }
 
 func (m Model) Get() interface{} {
-	datas := reflect.New(reflect.TypeOf(m.Model)).Interface()
-	m.Selector.One(datas)
-	return datas
+	return m.Attributes
 }
 
 func (m Model) First() interface{} {
@@ -42,17 +42,17 @@ func (m Model) First() interface{} {
 
 func (m Model) Load(relationships ...string) Model {
 
-	datas := reflect.ValueOf(m.Model)
-
 	for _, relationName := range relationships {
-		method := datas.MethodByName(relationName)
+		method := m.Model.MethodByName(relationName)
 		relation := method.Call([]reflect.Value {})[0].Interface()
 
 		switch reflect.TypeOf(relation) {
 		case reflect.TypeOf(HasOneRelation{}):
-			relationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
-			TableName := reflect.ValueOf(relationModel).FieldByName("Table").String()
-			m.Selector = HasOneRelation{}.Prepare(m.Selector, TableName, "role_id", "id")
+			RelationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
+			RelationData := reflect.ValueOf(RelationModel).MethodByName("Find").Call([]reflect.Value {
+				reflect.ValueOf(1),
+			})[0].MethodByName("First").Call([]reflect.Value {})[0]
+			m.Model.Elem().FieldByName("Rolel").Set(RelationData)
 		}
 	}
 
@@ -62,6 +62,9 @@ func (m Model) Load(relationships ...string) Model {
 func (m Model) Find(id int) Model {
 	selector := connection().SelectFrom(m.Table + " AS t1 ").Where("t1.id = ?", id)
 	m.Selector = selector
+	datas := m.Model.Interface()
+	m.Selector.One(datas)
+	m.Attributes = datas
 	return m
 }
 
@@ -82,7 +85,7 @@ func HasOne(model ModelInterface) HasOneRelation {
 
 func NewModel(model ModelInterface) Model {
 	return Model{
-		Model: model,
+		Model: reflect.New(reflect.TypeOf(model)),
 		Table: GetTableName(model),
 		Collection: &Collection{},
 	}
