@@ -1,13 +1,10 @@
 package model
 
 import (
-	"os"
+	"gosh"
 	"reflect"
 	"gosh/words"
-	"upper.io/db.v3/mysql"
 	"upper.io/db.v3/lib/sqlbuilder"
-	_ "github.com/go-sql-driver/mysql"
-	//"github.com/kr/pretty"
 )
 
 type Model struct {
@@ -21,19 +18,15 @@ type Model struct {
 
 type ModelInterface interface {}
 
-func connection() (db sqlbuilder.Database) {
-
-	db, _ = sqlbuilder.Open("mysql", mysql.ConnectionURL{
-		Database: os.Getenv("DB_NAME"),
-		Host:     os.Getenv("DB_HOST"),
-		User:     os.Getenv("DB_USER"),
-		Password: os.Getenv("DB_PASS"),
-	})
-	return
+func (Model) Connection() sqlbuilder.Database {
+	return gosh.Container.Connection
 }
 
 func (m Model) Get() interface{} {
-	return m.Attributes
+	collection := m.GetCollection()
+	attributes := collection.GetSingleCollection()
+	m.Selector.One(attributes)
+	return attributes
 }
 
 func (m Model) First() interface{} {
@@ -48,11 +41,18 @@ func (m Model) Load(relationships ...string) Model {
 
 		switch reflect.TypeOf(relation) {
 		case reflect.TypeOf(HasOneRelation{}):
-			RelationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
-			RelationData := reflect.ValueOf(RelationModel).MethodByName("Find").Call([]reflect.Value {
-				reflect.ValueOf(1),
-			})[0].MethodByName("First").Call([]reflect.Value {})[0]
-			m.Model.Elem().FieldByName("Rolel").Set(RelationData)
+			//RelationModel := reflect.ValueOf(relation).FieldByName("Model").Interface()
+			//RelationData := reflect.ValueOf(RelationModel).MethodByName("Find").Call([]reflect.Value {
+			//	reflect.ValueOf(1),
+			//})[0].MethodByName("First").Call([]reflect.Value {})[0]
+			//m = m.SetFields([]reflect.StructField {{
+			//	Name: "Role",
+			//	Type: reflect.TypeOf(reflect.Interface),
+			//}})
+			//Struct := m
+
+			//pretty.Println(Struct)
+			//.Elem().FieldByName("Role").Set(RelationData)
 		}
 	}
 
@@ -60,19 +60,25 @@ func (m Model) Load(relationships ...string) Model {
 }
 
 func (m Model) Find(id int) Model {
-	selector := connection().SelectFrom(m.Table + " AS t1 ").Where("t1.id = ?", id)
-	m.Selector = selector
-	datas := m.Model.Interface()
-	m.Selector.One(datas)
-	m.Attributes = datas
+	m.Selector = m.Connection().SelectFrom(m.Table + " AS t1 ").Where("t1.id = ?", id)
 	return m
 }
 
 func (m Model) All() interface{} {
-	selector := connection().SelectFrom(m.Table)
-	datas := reflect.New(reflect.SliceOf(reflect.TypeOf(m.Model))).Interface()
-	selector.All(datas)
-	return datas
+	m.Selector = m.Connection().SelectFrom(m.Table)
+	collection := m.GetCollection()
+	attributes := collection.GetSliceCollection()
+	m.Selector.All(attributes)
+	return attributes
+}
+
+func (m Model) SetFields(fields []reflect.StructField) Model {
+	m.Collection.Fields = append(m.Collection.Fields, fields...)
+	return m
+}
+
+func (m Model) GetCollection() *Collection {
+	return m.Collection.SetSelector(m.Selector)
 }
 
 func HasMany(model ModelInterface) HasManyRelation {

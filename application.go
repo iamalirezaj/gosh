@@ -11,6 +11,8 @@ import (
 	"upper.io/db.v3/lib/sqlbuilder"
 )
 
+var Container = Application{ Name: "Gosh", Version: "0.0.1" }
+
 type Application struct {
 	Name string
 	Version string
@@ -19,12 +21,18 @@ type Application struct {
 	Routes []routing.RouteInterface
 	Request request.Request
 	Router *gin.Engine
+	Aliases []Alias
 	Connection sqlbuilder.Database
 }
 
 func(application Application) LoadConfigs(filename string) Application {
 	yamlFile, _ := ioutil.ReadFile(filename)
 	yaml.Unmarshal(yamlFile, &application)
+	return application
+}
+
+func (application Application) Alias(alias Alias) Application {
+	application.Aliases = append(application.Aliases, alias)
 	return application
 }
 
@@ -61,28 +69,27 @@ func (application Application) AddProviders(providers []ProviderInterface) Appli
 	return application
 }
 
-func (application Application) GetProviders() []ProviderInterface {
-
-	BaseProviders := []ProviderInterface {}
+func (application Application) SetProviders() Application {
 
 	BeforProvider := []ProviderInterface {
 		EnvironmentProvider{},
-		MysqlProvider{},
+		DatabaseProvider{},
 	}
 
 	AfterProviders := []ProviderInterface {
 		RouterProvider{},
 	}
 
-	BaseProviders = append(BeforProvider, application.Providers... )
-	BaseProviders = append(BaseProviders, AfterProviders...)
+	application.Providers = append(BeforProvider, application.Providers... )
+	application.Providers = append(application.Providers, AfterProviders...)
 
-	return BaseProviders
+	return application
 }
 
 func (application Application) BootProvider(provider ProviderInterface) Application {
 
-	provider.Boot(application)
+	application = provider.Boot(application)
+	Container = application
 
 	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " booted.")
@@ -94,6 +101,7 @@ func (application Application) BootProvider(provider ProviderInterface) Applicat
 func (application Application) RegisterProvider(provider ProviderInterface) Application {
 
 	application = provider.Register(application)
+	Container = application
 
 	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " registered.")
@@ -104,9 +112,8 @@ func (application Application) RegisterProvider(provider ProviderInterface) Appl
 
 func (application Application) RunProviders() Application {
 
-	providers := application.GetProviders()
-
-	application = application.RegisterProviders(providers).BootProviders(providers)
+	application = application.SetProviders()
+	application = application.RegisterProviders(application.Providers).BootProviders(application.Providers)
 
 	return application
 }
@@ -129,6 +136,5 @@ func (application Application) RegisterProviders(providers []ProviderInterface) 
 
 func (application Application) Run() Application {
 
-	application = application.RunProviders()
-	return application
+	return application.RunProviders()
 }
