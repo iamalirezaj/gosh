@@ -19,12 +19,11 @@ type Model struct {
 type ModelInterface interface {}
 
 func (Model) Connection() sqlbuilder.Database {
-	return gosh.Container.Connection
+	return gosh.DatabaseConnection()
 }
 
 func (m Model) Get() interface{} {
-	collection := m.GetCollection()
-	attributes := collection.GetSingleCollection()
+	attributes := m.GetCollection().GetSingleCollection()
 	m.Selector.One(attributes)
 	return attributes
 }
@@ -60,7 +59,7 @@ func (m Model) Load(relationships ...string) Model {
 }
 
 func (m Model) Find(id int) Model {
-	m.Selector = m.Connection().SelectFrom(m.Table + " AS t1 ").Where("t1.id = ?", id)
+	m.Selector = m.Connection().SelectFrom(m.Table).Where("id = ?", id)
 	return m
 }
 

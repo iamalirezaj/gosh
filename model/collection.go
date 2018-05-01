@@ -3,9 +3,9 @@ package model
 import (
 	"reflect"
 	"database/sql"
+	"github.com/kr/pretty"
 	"github.com/iancoleman/strcase"
 	"upper.io/db.v3/lib/sqlbuilder"
-	"github.com/kr/pretty"
 )
 
 type Collection struct {
@@ -21,8 +21,7 @@ func (c *Collection) SetSelector(selector sqlbuilder.Selector) *Collection {
 func (c *Collection) CreateStruct(query *sql.Rows, err error) reflect.Type {
 	if err != nil { panic(err) }
 	fields := c.CreateColumns(query.ColumnTypes()).Fields
-	collection := reflect.StructOf(fields)
-	return collection
+	return reflect.StructOf(fields)
 }
 
 func (c *Collection) CreateColumns(columns []*sql.ColumnType, err error) *Collection {
@@ -32,40 +31,33 @@ func (c *Collection) CreateColumns(columns []*sql.ColumnType, err error) *Collec
 	for _, column := range columns {
 		typ := column.ScanType()
 
-		pretty.Println(typ.String())
+		if typ.Name() == "RawBytes" {
 
-		if typ.String() == "sql.RawBytes" { typ = reflect.TypeOf([]byte{}) }
+			pretty.Println(typ)
+
+			typ = reflect.TypeOf([]byte{})
+		}
+
 		c.Fields = append(c.Fields, reflect.StructField{
 			Name: strcase.ToCamel(column.Name()),
 			Type: typ,
-			Tag: reflect.StructTag(`db:"` + column.Name() + `"`),
+			Tag: reflect.StructTag(`db:"` + column.Name() + `" json:"` + column.Name() + `"`),
 		})
 	}
+
 	return c
 }
 
+func (c *Collection) GetStruct() reflect.Type {
+	return c.CreateStruct(c.Selector.Query())
+}
+
 func (c *Collection) GetSliceCollection() interface{} {
-	query , err := c.Selector.Query()
-	Struct := c.CreateStruct(query, err)
-	return reflect.New(reflect.SliceOf(Struct)).Interface()
+	return reflect.New(reflect.SliceOf(c.GetStruct())).Interface()
 }
 
 func (c *Collection) GetSingleCollection() interface{} {
-	query , err := c.Selector.Query()
-	Struct := c.CreateStruct(query, err)
-	return reflect.New(Struct).Interface()
-
-	//arr := reflect.ValueOf(collection)
-	//slices := arr.Elem().Slice(0, arr.Elem().Len())
-	//columns, _ := query.ColumnTypes()
-	//for i := 0; i < slices.Len(); i++ {
-	//	slice := map[string] interface{} {}
-	//	for si := 0; si < slices.Index(i).NumField(); si++ {
-	//		field := slices.Index(i)
-	//		slice[columns[si].Name()] = field.Field(si).Interface()
-	//	}
-	//	c.MapStruct = append(c.MapStruct, slice)
-	//}
+	return reflect.New(c.GetStruct()).Interface()
 }
 
 func (c *Collection) GetFields() []reflect.StructField {

@@ -11,7 +11,7 @@ import (
 	"upper.io/db.v3/lib/sqlbuilder"
 )
 
-var Container = Application{ Name: "Gosh", Version: "0.0.1" }
+var Container = Application{ Name: "Gosh", Version: "0.0.1" , Aliases: map[string] interface{} {}}
 
 type Application struct {
 	Name string
@@ -21,7 +21,7 @@ type Application struct {
 	Routes []routing.RouteInterface
 	Request request.Request
 	Router *gin.Engine
-	Aliases []Alias
+	Aliases map[string] interface{}
 	Connection sqlbuilder.Database
 }
 
@@ -31,8 +31,8 @@ func(application Application) LoadConfigs(filename string) Application {
 	return application
 }
 
-func (application Application) Alias(alias Alias) Application {
-	application.Aliases = append(application.Aliases, alias)
+func (application Application) Alias(alias string, abstract interface{}) Application {
+	application.Aliases[alias] = abstract
 	return application
 }
 
