@@ -1,7 +1,9 @@
 package console
 
-import "gosh/console/commands"
-import "github.com/codegangsta/cli"
+import (
+	"github.com/codegangsta/cli"
+	"github.com/goshco/gosh/console/commands"
+)
 
 type Console struct {
 	Name string

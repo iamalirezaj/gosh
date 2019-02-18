@@ -1,13 +1,13 @@
 package commands
 
 import (
-	"github.com/codegangsta/cli"
-	"github.com/fatih/color"
 	"os"
-	"reflect"
-	"io/ioutil"
-	"strings"
 	"fmt"
+	"reflect"
+	"strings"
+	"io/ioutil"
+	"github.com/fatih/color"
+	"github.com/codegangsta/cli"
 )
 
 type MakeControllerCommand Command

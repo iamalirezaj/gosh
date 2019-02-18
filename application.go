@@ -3,26 +3,32 @@ package gosh
 import (
 	"reflect"
 	"io/ioutil"
-	"gosh/routing"
-	"gosh/request"
 	"gopkg.in/yaml.v2"
 	"github.com/fatih/color"
 	"github.com/gin-gonic/gin"
 	"upper.io/db.v3/lib/sqlbuilder"
 )
 
-var Container = Application{ Name: "Gosh", Version: "0.0.1" , Aliases: map[string] interface{} {}}
-
 type Application struct {
 	Name string
 	Version string
 	Environment string
 	Providers []ProviderInterface
-	Routes []routing.RouteInterface
-	Request request.Request
 	Router *gin.Engine
-	Aliases map[string] interface{}
+	Configs map[string] interface{}
 	Connection sqlbuilder.Database
+}
+
+var Container *Application
+
+func NewApplication(name string) *Application {
+
+	Container = &Application{
+		Name: "Gosh",
+		Version: "0.0.1",
+		Configs: map[string] interface{} {},
+	}
+	return Container
 }
 
 func(application Application) LoadConfigs(filename string) Application {
@@ -31,110 +37,84 @@ func(application Application) LoadConfigs(filename string) Application {
 	return application
 }
 
-func (application Application) Alias(alias string, abstract interface{}) Application {
-	application.Aliases[alias] = abstract
-	return application
+func (application *Application) Config(key string, value interface{}) {
+	application.Configs[key] = value
 }
 
-func (application Application) Make(action interface{}) Application {
-
-	return application
-}
-
-func (application Application) SetRouter(router *gin.Engine) Application {
-
+func (application *Application) SetRouter(router *gin.Engine) {
 	application.Router = router
-	return application
 }
 
-func (application Application) SetDatabaseConnection(connection sqlbuilder.Database) Application {
-
+func (application *Application) SetDatabaseConnection(connection sqlbuilder.Database) {
 	application.Connection = connection
-	return application
 }
 
-func (application Application) GetRouter() *gin.Engine {
+func (application *Application) GetRouter() *gin.Engine {
 	return application.Router
 }
 
-func (application Application) SetRoutes(routes []routing.RouteInterface) Application {
-
-	application.Routes = append(application.Routes, routes...)
-	return application
+func (application *Application) AddProvider(provider ProviderInterface) {
+	application.Providers = append(application.Providers, provider)
 }
 
-func (application Application) AddProviders(providers []ProviderInterface) Application {
-
+func (application *Application) AddProviders(providers []ProviderInterface) {
 	application.Providers = append(application.Providers, providers...)
-	return application
 }
 
-func (application Application) SetProviders() Application {
+func (application *Application) SetProviders() {
 
-	BeforProvider := []ProviderInterface {
-		EnvironmentProvider{},
-		DatabaseProvider{},
+	BaseProviders := []ProviderInterface {
+		&EnvironmentProvider{},
+		&DatabaseProvider{},
 	}
 
-	AfterProviders := []ProviderInterface {
-		RouterProvider{},
-	}
-
-	application.Providers = append(BeforProvider, application.Providers... )
-	application.Providers = append(application.Providers, AfterProviders...)
-
-	return application
+	application.Providers = append(BaseProviders, application.Providers... )
 }
 
-func (application Application) BootProvider(provider ProviderInterface) Application {
+func (application *Application) BootProvider(provider ProviderInterface) {
 
-	application = provider.Boot(application)
-	Container = application
+	provider.Boot()
 
 	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " booted.")
 	}
-
-	return application
 }
 
-func (application Application) RegisterProvider(provider ProviderInterface) Application {
+func (application *Application) RegisterProvider(provider ProviderInterface) {
 
-	application = provider.Register(application)
-	Container = application
+	p := reflect.ValueOf(provider).Elem()
+
+	d := p.FieldByName("Application")
+	d.Set(reflect.ValueOf(application))
+
+	p.MethodByName("Register").Call([] reflect.Value{})
 
 	if application.Environment == "debug" {
 		color.Green(reflect.TypeOf(provider).String() + " registered.")
 	}
-
-	return application
 }
 
-func (application Application) RunProviders() Application {
+func (application *Application) RunProviders() {
 
-	application = application.SetProviders()
-	application = application.RegisterProviders(application.Providers).BootProviders(application.Providers)
-
-	return application
+	application.SetProviders()
+	application.RegisterProviders()
+	//application.BootProviders(application.Providers)
 }
 
-func (application Application) BootProviders(providers []ProviderInterface) Application {
+func (application *Application) BootProviders(providers []ProviderInterface) {
 
 	for _, provider := range providers {
-		application = application.BootProvider(provider)
+		application.BootProvider(provider)
 	}
-	return application
 }
 
-func (application Application) RegisterProviders(providers []ProviderInterface) Application {
+func (application *Application) RegisterProviders() {
 
-	for _, provider := range providers {
-		application = application.RegisterProvider(provider)
+	for _, provider := range application.Providers {
+		application.RegisterProvider(provider)
 	}
-	return application
 }
 
-func (application Application) Run() Application {
-
-	return application.RunProviders()
+func (application *Application) Run() {
+	application.RunProviders()
 }

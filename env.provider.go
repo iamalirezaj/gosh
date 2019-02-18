@@ -1,32 +1,21 @@
 package gosh
 
 import (
-	"os"
-	"fmt"
+	"github.com/pkg/errors"
 	"github.com/joho/godotenv"
 )
 
-func env(value string) string {
-
-	return os.Getenv(value)
-}
-
 type EnvironmentProvider Provider
 
-func (EnvironmentProvider) Register(application Application) Application {
+func (provider EnvironmentProvider) Register() {
 
 	if err := godotenv.Load(); err != nil {
-		fmt.Println(err)
+		errors.Errorf("%v", err)
 	}
 
-	application.Environment = env("ENV")
-	if application.Environment == "" { application.Environment = "debug" }
+	provider.Application.Environment = Env("ENV")
 
-	// your register things in application scope
-	return application
-}
-
-func (EnvironmentProvider) Boot(application Application) Application {
-
-	return application
+	if provider.Application.Environment == "" {
+		provider.Application.Environment = "debug"
+	}
 }
